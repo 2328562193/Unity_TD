@@ -9,7 +9,7 @@ public class TowerCardInputController : IInputController {
         InputEnum.Alpha4
     };
 
-    public void Update() {
+    public void HandleInteraction() {
         for (int i = 0; i < TowerKeys.Length; i++) {
             PushKey key = InputManager.Instance.GetInput<PushKey>(TowerKeys[i]);
             if (key != null && key.isDown) {

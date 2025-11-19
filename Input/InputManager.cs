@@ -9,7 +9,7 @@ public class InputManager : Singleton<InputManager> {
 
     public void Update(){ 
         foreach (IInputController controller in inputControllerDict.Values) {
-            if (controller.Enable) controller.Update();
+            if (controller.Enable) controller.HandleInteraction();
         }
     }
 

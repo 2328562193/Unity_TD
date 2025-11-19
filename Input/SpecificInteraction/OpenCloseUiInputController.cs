@@ -4,7 +4,7 @@ public class OpenCloseUiInputController : IInputController {
 
     public bool Enable { get; set; } = false;
 
-    public void Update(){
+    public void HandleInteraction(){
         PushKey mouseKey = InputManager.Instance.GetInput<PushKey>(InputEnum.MouseLeft);
         if (mouseKey == null || !mouseKey.isDown) return ;
         OpenCloseInteractable openCloseInteractable = InputManager.Instance.WorldInteractable<OpenCloseInteractable>();
