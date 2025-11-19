@@ -7,6 +7,27 @@ public class InputUtils {
         }
     }
     private static Camera _mainCamera;
+    private static readonly LayerMask interactable2DLayers = LayerMask.GetMask("Interactable");
+    private class SortingOrderComparer : IComparer<IInteractable> {
+        public int Compare(IInteractable x, IInteractable y) {
+            if (x == null && y == null) return 0;
+            if (x == null) return 1;
+            if (y == null) return -1;
+
+            int orderX = x.Priority;
+            int orderY = y.Priority;
+            return orderY.CompareTo(orderX); // 高 sortingOrder 优先
+        }
+    }
+    private static readonly IComparer<IInteractable> SortingOrderComparerInstance = new SortingOrderComparer();
+    private static readonly Collider2D[] worldResults = new Collider2D[10];
+    private static readonly IInteractable[] interactableResults = new IInteractable[10];
+    private static readonly PointerEventData eventData = new PointerEventData(null);
+    private static readonly List<RaycastResult> uiResults = new List<RaycastResult>();
+    private static readonly ContactFilter2D defaultContactFilter = new ContactFilter2D {
+        useTriggers = true,
+        layerMask = interactable2DLayers
+    };
 
     public static void SetMainCamera(Camera cam){
         _mainCamera = cam;
@@ -31,12 +52,11 @@ public class InputUtils {
             GameLogger.LogWarning("EventSystem.current is null.");
             return false;
         }
-        PointerEventData eventData = new PointerEventData(EventSystem.current); // 可优化
         eventData.position = screenPos;
+        uiResults.Clear();
 
-        List<RaycastResult> results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(eventData, results);
-        return results.Count > 0;
+        EventSystem.current.RaycastAll(eventData, uiResults);
+        return uiResults.Count > 0;
     }
 
     private static bool GetUIAtPosition<T>(Vector2 screenPos, out T component) where T : Component {
@@ -45,12 +65,11 @@ public class InputUtils {
             GameLogger.LogWarning("EventSystem.current is null.");
             return false;
         }
-        PointerEventData eventData = new PointerEventData(EventSystem.current); // 可优化
         eventData.position = screenPos;
-        List<RaycastResult> uiHitResults = new List<RaycastResult>(); // 可优化
-        EventSystem.current.RaycastAll(eventData, uiHitResults);
+        uiResults.Clear();
+        EventSystem.current.RaycastAll(eventData, uiResults);
 
-        foreach (var result in uiHitResults) {
+        foreach (var result in uiResults) {
             if (result.gameObject.TryGetComponent<T>(out component)) {
                 return true;
             }
@@ -58,7 +77,7 @@ public class InputUtils {
         return false;
     }
 
-    private static bool Physics2DRaycast<T>(Vector2 screenPos, out T component) where T : Component {
+    private static bool Physics2DRaycast<T>(Vector2 screenPos, out T component) where T : Component, IInteractable {
         component = null;
         if (mainCamera == null) {
             GameLogger.LogWarning("mainCamera is null.");
@@ -66,28 +85,21 @@ public class InputUtils {
         }
         Vector3 worldPoint = mainCamera.ScreenToWorldPoint(screenPos);
 
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.SetLayerMask(interactable2DLayers);
-        filter.useTriggers = true;
-
-        Collider2D[] results = new Collider2D[10];
-        int hitCount = Physics2D.OverlapPoint(worldPoint, filter, results);
+        int hitCount = Physics2D.OverlapPoint(worldPoint, defaultContactFilter, worldResults);
         if (hitCount == 0) return false;
 
-        List<Collider2D> hits = new List<Collider2D>(results.Take(hitCount));
-
-        hits.Sort((a, b) => {
-            int orderA = a.GetComponent<SpriteRenderer>()?.sortingOrder ?? 0;
-            int orderB = b.GetComponent<SpriteRenderer>()?.sortingOrder ?? 0;
-            return orderB.CompareTo(orderA);
-        });
-
-        foreach (var col in hits) {
+        for (int i = 0; i < hitCount; i++) {
+            var col = worldResults[i];
             if (col != null && col.gameObject.TryGetComponent<T>(out component)) {
-                return true;
+                interactableResults[i] = component;
+            } else {
+                interactableResults[i] = null;
             }
         }
+        Array.Sort(interactableResults, 0, hitCount, SortingOrderComparerInstance);
 
-        return false;
+        if (interactableResults[0] == null) return false;
+        component = interactableResults[0] as T;
+        return true;
     }
 }
