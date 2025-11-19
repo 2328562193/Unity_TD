@@ -33,10 +33,33 @@ public class InputUtils {
         _mainCamera = cam;
     }
 
-    public static T WorldInteractable<T>() where T : class, IInteractable {
+    public static bool WorldInteractable<T>(out T component) where T : class, IInteractable {
         if (IsPointerOverUI()) return null;
-        Vector2 mousePosition = GetInput<MousePosition>(InputEnum.MousePosition).value;
-        return Physics2DRaycast<T>(mousePosition, out T interactable) ? interactable : null;
+        Vector2 mousePosition = InputManager.GetInput<MousePosition>(InputEnum.MousePosition).value;
+        return Physics2DRaycast<T>(mousePosition, out component);
+    }
+
+    public static bool GetUIByMouse<T>(out T component) where T : Component, IInteractable {
+        Vector2 mousePosition = InputManager.GetInput<MousePosition>(InputEnum.MousePosition).value;
+        return GetUIByPosition<T>(mousePosition, out component);
+    }
+
+    public static bool GetUIAtPosition<T>(Vector2 screenPos, out T component) where T : Component {
+        component = null;
+        if (EventSystem.current == null) {
+            GameLogger.LogWarning("EventSystem.current is null.");
+            return false;
+        }
+        eventData.position = screenPos;
+        uiResults.Clear();
+        EventSystem.current.RaycastAll(eventData, uiResults);
+
+        foreach (var result in uiResults) {
+            if (result.gameObject.TryGetComponent<T>(out component)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static bool IsPointerOverUI() {
@@ -57,24 +80,6 @@ public class InputUtils {
 
         EventSystem.current.RaycastAll(eventData, uiResults);
         return uiResults.Count > 0;
-    }
-
-    private static bool GetUIAtPosition<T>(Vector2 screenPos, out T component) where T : Component {
-        component = null;
-        if (EventSystem.current == null) {
-            GameLogger.LogWarning("EventSystem.current is null.");
-            return false;
-        }
-        eventData.position = screenPos;
-        uiResults.Clear();
-        EventSystem.current.RaycastAll(eventData, uiResults);
-
-        foreach (var result in uiResults) {
-            if (result.gameObject.TryGetComponent<T>(out component)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static bool Physics2DRaycast<T>(Vector2 screenPos, out T component) where T : Component, IInteractable {
