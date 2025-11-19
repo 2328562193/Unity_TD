@@ -1,6 +1,6 @@
 public class InputManager : Singleton<InputManager> { 
     
-    private readonly Dictionary<string, IInputController> inputControllerDict = new();
+    private static readonly Dictionary<string, IInputController> inputControllerDict = new();
 
     public void Start(){
         AddInputController("towerCardInputController", new TowerCardInputController());
@@ -25,7 +25,7 @@ public class InputManager : Singleton<InputManager> {
     
     private readonly Dictionary<InputEnum, AbstractInput> enumToInput = new();
 
-    public T GetInput<T>(InputEnum inputEnum) where T : AbstractInput {
+    public static T GetInput<T>(InputEnum inputEnum) where T : AbstractInput {
         if(enumToInput.TryGetValue(inputEnum, out AbstractInput input)) return input as T;
         if(inputEnum == InputEnum.Alpha1) input = new KeyboardKey(KeyCode.Alpha1);
         else if(inputEnum == InputEnum.Alpha2) input = new KeyboardKey(KeyCode.Alpha2);
