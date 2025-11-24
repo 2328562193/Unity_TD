@@ -55,11 +55,11 @@ BaseController的Buffs去掉private set属性
         }
         BuffObj buff = FindBuff(addBuffInfo.buffModel.name, addBuffInfo.caster.Id);
         if(buff == null){
-            BuffObj buff = new BuffObj(addBuffInfo.buffModel, 
+            BuffObj addBuff = new BuffObj(addBuffInfo.buffModel, 
                 addBuffInfo.caster, 
                 addBuffInfo.target == null ? (CharacterController)this : addBuffInfo.target, 
                 addBuffInfo.buffParam);
-            this.buffs.Add(buff);
+            this.AddBuffOnlyPriority(addBuff);
             return;
         } 
         if (buff.stack + addBuffInfo.addStack < buff.model.maxStack){
@@ -67,6 +67,17 @@ BaseController的Buffs去掉private set属性
             return;
         }
         buff.stack = buff.model.maxStack;
+    }
+
+    private void AddBuffOnlyPriority(BuffObj buff) {
+        for(int i = this.buffs.Count - 1; i >= 0; i--) {
+            BuffObj existBuff = this.buffs[i];
+            if (existBuff == null) continue;
+            if (existBuff.model.priority > buff.model.priority) continue;
+            this.buffs.Insert(i + 1, buff);
+            return;
+        }
+        this.buffs.Insert(0, buff);
     }
 
     public Dictionary<string,ImageInfo> images = new Dictionary<string,ImageInfo>();
