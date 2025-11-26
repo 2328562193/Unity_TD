@@ -96,6 +96,7 @@ public static Vector2 StarTween(float t, BulletController bullet, BaseController
 }
 
 public static TimelineObj AddExplosionDebris(BuffObj buff, SkillObj skill, TimelineObj timeline) {
+    if(skill.model.id != "AssignedPlaceCreateAoe") return timeline;
     timeline.model.nodes = AddNodeByAfter(timeline.model.nodes,
         "CreateAoe",
         "CreateExplosionDebris",
@@ -119,4 +120,93 @@ public static void CreateExplosionDebris(TimelineObj timeline, object[] param) {
                 null);
         GameManage.instance.CreateBullet(bulletLauncher);
     }
+}
+
+public bool ReleaseSkill(SkillObj skill, Dictionary<string, object> param) {
+    timeline = null;
+    if (skill == null) return false;
+    if (!skill.ReleaseSkill(this, param, out timeline)) return false;
+    this.ModResource(skill.model.cost);
+    foreach(BuffObj buff in this.Buffs) {
+        buff.model.onCast?.Invoke(buff, skill, timeline);
+    }
+    return true;
+}
+
+// 子弹移除函数
+public static void CreateAoe(BulletController bullet) {
+    SkillObj skill = new SkillObj(DesingerTables.Skill.data["AssignedPlaceCreateAoe"]);
+    Dictionary<string, object> param = new Dictionary<string, object>() { {"Position", bullet.Position} };
+    bullet.caster.controller.ReleaseSkill(skill, param);
+}
+
+{"AssignedPlaceCreateAoe", new SkillModel("AssignedPlaceCreateAoe",
+        "SkillAssignedPlaceCreateAoe",
+        ChaResource.Null,
+        "",
+        ChaResource.Null,
+        0f) }
+        
+{"SkillAssignedPlaceCreateAoe", new TimelineModel("SkillAssignedPlaceCreateAoe", new TimelineNode[] {
+        new TimelineNode("SetAoeLauncher", 0f, "SetAoeLauncher", new object[1]{"HurtAoe"}),
+        new TimelineNode("CreateAoe", 0f, "CreateAoe", new object[0])
+    }) },
+
+public static void SetAoeLauncher(TimelineObj timeline, object[] param) {
+    if(!timeline.param.ContainsKey("Position")) return;
+    Vector2 position = (Vector2)timeline.param["Position"];
+    string aoeName = "HurtAoe";
+    if(param != null && param.Length > 0) aoeName = (string)param[0];
+    AoeLauncher aoeLauncher = new AoeLauncher(aoeName, 
+        timeline.caster, 
+        position, 
+        0,
+        timeline.caster.property.attack)
+    timeline.param.Add("AoeLauncher", aoeLauncher);
+}
+
+public static void CreateAoe(TimelineObj timeline, object[] param) {
+    if (!timeline.param.ContainsKey("AoeLauncher")) return;
+    AoeLauncher aoeLauncher = (AoeLauncher)timeline.param["AoeLauncher"];
+    GameManage.instance.CreateAoe(aoeLauncher);
+}
+
+BulletLauncher.cs
+    public Vector2 targetPosition;
+
+private static TimelineObj ThrowMore(BuffObj buff, SkillObj skill, TimelineObj timeline) {
+    timeline.model.nodes = ReplaceNode(timeline.model.nodes, "FireBullet", "ThrowMoreBullet");
+    return timeline;
+}
+
+public static void ThrowMoreBullet(TimelineObj timeline, object[] param) {
+    if (!timeline.param.ContainsKey("BulletLauncher")) return;
+    BulletLauncher bulletLauncher = (BulletLauncher)timeline.param["BulletLauncher"];
+    int count = 3;
+    for (int i = 0; i < count; i++) { 
+        BulletLauncher newBulletLauncher = bulletLauncher.Clone();
+        newBulletLauncher.targetPosition = bulletLauncher.targetPosition + new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f));
+        GameManage.instance.CreateBullet(newBulletLauncher);
+    }
+}
+
+public static TimelineObj AddLavaAoe(BuffObj buff, SkillObj skill, TimelineObj timeline) {
+    if(skill.model.id != "AssignedPlaceCreateAoe") return timeline;
+    timeline.model.nodes = AddNodeByAfter(timeline.model.nodes,
+        "CreateAoe",
+        "CreateLavaAoe",
+        "CreateLavaAoe",
+        0.0f,
+        new object[0]);
+    return timeline;
+}
+
+public static void CreateLavaAoe(TimelineObj timeline, object[] param) {
+    AoeLauncher aoeLauncher = (AoeLauncher)timeline.param["AoeLauncher"];
+    AoeLauncher lavaAoeLauncher = new AoeLauncher("LavaAoe", 
+        timeline.caster, 
+        aoeLauncher.position + new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f), 
+        0,
+        timeline.caster.property.attack);
+    GameManage.instance.CreateAoe(aoeLauncher);
 }
