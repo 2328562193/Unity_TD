@@ -69,7 +69,13 @@ private static TimelineObj SubAttackTime(BuffObj buff, SkillObj skill, TimelineO
     GameManage.instance.levelManager.AddGold(-10);
     return timeline;
 }
-//create[SubAttackTime]buff
+
+{"SubAttackTime", new BuffModel(
+    "SubAttackTime", 
+    "减少攻击时间", 
+    BuffStackType.ResetTimeAndAddStack,
+    maxStack: 5, priority: 0, duration: 3)
+    .AddProperty(ChaProperty.zero, ChaProperty.zero.SetAttackTime(-0.02f)) },
 
 private static void MoneyReward(BuffObj buff, DamageInfo damageInfo, BaseController target){
     int money = 1;
@@ -78,10 +84,60 @@ private static void MoneyReward(BuffObj buff, DamageInfo damageInfo, BaseControl
     GameManage.instance.levelManager.AddGold(value);
 }
 
+{"MoneyReward", new BuffModel(
+    "MoneyReward",
+    "金币奖励",
+    BuffStackType.None,
+    maxStack: 1, priority: 0, duration: float.MaxValue)
+    .SetOnKill("MoneyReward") },
+
 private static void DamageTransfer(BuffObj buff, ref DamageInfo damageInfo, BaseController attacker){
     CharacterController target = buff.caster;
     if(target == null || target.Dead) return;
+    if(!buff.buffParam.ContainsKey("Distance")) return;
+    float distance = (float)buff.buffParam["Distance"];
+    float distanceSqr = (target.Position - buff.carrier.Position).sqrMagnitude;
+    if(distanceSqr > distance * distance) return;
     damageInfo.defender = target;
+}
+
+{"DamageTransfer", new BuffModel(
+    "DamageTransfer",
+    "伤害转移",
+    BuffStackType.None,
+    maxStack: 1, priority: 0, duration: 3)
+    .SetOnBeHurt("DamageTransfer") },
+
+{"AsylumTeammate", new SkillModel("AsylumTeammate",
+    "SkillAsylumTeammate",
+    ChaResource.Null,
+    "",
+    ChaResource.Null,
+    0.2f) },
+
+{"SkillAsylumTeammate", new TimelineModel("SkillAsylumTeammate", new TimelineNode[] {
+        new TimelineNode("RangeTowerAddBuff", 0f, "RangeTowerAddBuff", new object[2]{1f, "DamageTransfer"}),
+    }) },
+
+public static void RangeTowerAddBuff(TimelineObj timeline, object[] param) {
+    float range = 0f;
+    if (param.Length > 0) range = (float)param[0];
+    string buffName = "";
+    if (param.Length > 1) buffName = (string)param[1];
+    List<TowerController> towers = GameManage.instance.towerManage.GetTowers();
+    CharacterController controller = timeline.caster;
+    Circle nearby = new Circle(controller.property.x, controller.property.y, range);
+    foreach (TowerController tower in towers) {
+        if (tower.Dead) continue;
+        if (tower.model.towerType != TowerType.Tower) continue;
+        if (!GeometryUtils.AABB_Overlap_Circle(tower.property.hitCircle.aabb, nearby)) continue;
+        if (tower.FindBuff(buffName, controller.Id) != null) continue;
+        tower.AddBuff(new AddBuffInfo(controller, 
+            tower, 
+            DesingerTables.Buff.data[buffName], 
+            1, 
+            new Dictionary<string, object> { {"Distance", range} }));
+    }
 }
 
 public static Vector2 StarTween(float t, BulletController bullet, BaseController target) {
@@ -105,6 +161,13 @@ public static TimelineObj AddExplosionDebris(BuffObj buff, SkillObj skill, Timel
         new object[1] { 3 });
     return timeline;
 }
+
+{"ExplosionDebris", new BuffModel(
+    "ExplosionDebris",
+    "爆炸产生碎片",
+    BuffStackType.None,
+    maxStack: 1, priority: 0, duration: float.MaxValue)
+    .SetOnCast("AddExplosionDebris") },
 
 public static void CreateExplosionDebris(TimelineObj timeline, object[] param) {
     int debrisNumber = 0;
@@ -174,6 +237,13 @@ public static void CreateAoe(TimelineObj timeline, object[] param) {
 BulletLauncher.cs
     public Vector2 targetPosition;
 
+{"ThrowMore", new BuffModel(
+    "ThrowMore",
+    "随机抛射多个弹",
+    BuffStackType.None,
+    maxStack: 1, priority: 0, duration: float.MaxValue)
+    .SetOnCast("ThrowMore") },
+
 private static TimelineObj ThrowMore(BuffObj buff, SkillObj skill, TimelineObj timeline) {
     timeline.model.nodes = ReplaceNode(timeline.model.nodes, "FireBullet", "ThrowMoreBullet");
     return timeline;
@@ -190,6 +260,13 @@ public static void ThrowMoreBullet(TimelineObj timeline, object[] param) {
     }
 }
 
+{"LavaAoe", new BuffModel(
+    "LavaAoe",
+    "在Aoe上产生岩浆Aoe",
+    BuffStackType.None,
+    maxStack: 1, priority: 0, duration: float.MaxValue)
+    .SetOnCast("AddLavaAoe") },
+
 public static TimelineObj AddLavaAoe(BuffObj buff, SkillObj skill, TimelineObj timeline) {
     if(skill.model.id != "AssignedPlaceCreateAoe") return timeline;
     timeline.model.nodes = AddNodeByAfter(timeline.model.nodes,
@@ -202,11 +279,12 @@ public static TimelineObj AddLavaAoe(BuffObj buff, SkillObj skill, TimelineObj t
 }
 
 public static void CreateLavaAoe(TimelineObj timeline, object[] param) {
+    if (!timeline.param.ContainsKey("AoeLauncher")) return;
     AoeLauncher aoeLauncher = (AoeLauncher)timeline.param["AoeLauncher"];
     AoeLauncher lavaAoeLauncher = new AoeLauncher("LavaAoe", 
         timeline.caster, 
-        aoeLauncher.position + new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f), 
+        aoeLauncher.position + new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f)), 
         0,
         timeline.caster.property.attack);
-    GameManage.instance.CreateAoe(aoeLauncher);
+    GameManage.instance.CreateAoe(lavaAoeLauncher);
 }
