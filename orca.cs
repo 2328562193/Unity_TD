@@ -1,104 +1,4 @@
-using System;
-using System.Collections.Generic;
 
-// ----------------------------
-// 自定义 Vector2（使用 float）
-// ----------------------------
-public struct Vector2
-{
-    public float x, y;
-
-    public Vector2(float x, float y)
-    {
-        this.x = x;
-        this.y = y;
-    }
-
-    public static Vector2 zero => new Vector2(0, 0);
-    public static Vector2 right => new Vector2(1, 0);
-
-    public static Vector2 operator +(Vector2 a, Vector2 b) => new Vector2(a.x + b.x, a.y + b.y);
-    public static Vector2 operator -(Vector2 a, Vector2 b) => new Vector2(a.x - b.x, a.y - b.y);
-    public static Vector2 operator -(Vector2 v) => new Vector2(-v.x, -v.y);
-    public static Vector2 operator *(Vector2 a, float d) => new Vector2(a.x * d, a.y * d);
-    public static Vector2 operator *(float d, Vector2 a) => new Vector2(a.x * d, a.y * d);
-    public static Vector2 operator /(Vector2 a, float d) => new Vector2(a.x / d, a.y / d);
-    public static bool operator ==(Vector2 a, Vector2 b) => a.x == b.x && a.y == b.y;
-    public static bool operator !=(Vector2 a, Vector2 b) => !(a == b);
-
-    public override bool Equals(object obj) => obj is Vector2 v && this == v;
-    public override int GetHashCode() => x.GetHashCode() ^ y.GetHashCode().GetHashCode();
-}
-
-// ----------------------------
-// 自定义 Mathf（仅用到的部分）
-// ----------------------------
-public static class Mathf
-{
-    public static float Sqrt(float x) => (float)Math.Sqrt(x);
-    public static float Clamp(float value, float min, float max)
-    {
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
-    }
-    public static float Min(float a, float b) => a < b ? a : b;
-    public static float Max(float a, float b) => a > b ? a : b;
-}
-
-// ----------------------------
-// 基础数据结构
-// ----------------------------
-public struct AABB_Rect
-{
-    public float minX, minY, maxX, maxY;
-}
-
-public class Line
-{
-    public Vector2 point;
-    public Vector2 direction;
-}
-
-public class Obstacle
-{
-    public Vector2 point;
-    public Vector2 direction;
-    public bool convex;
-    public Obstacle previous;
-    public Obstacle next;
-}
-
-public class AABBObstacle
-{
-    public float minX, minY, maxX, maxY;
-    public Obstacle[] obstacles;
-}
-
-// ----------------------------
-// 数学工具类
-// ----------------------------
-public static class RvoMath
-{
-    public static float Dot(Vector2 a, Vector2 b) => a.x * b.x + a.y * b.y;
-    public static float Det(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
-    public static float Sqr(float x) => x * x;
-    public static float Sqrt(float x) => Mathf.Sqrt(x);
-    public static float AbsSq(Vector2 v) => v.x * v.x + v.y * v.y;
-
-    public static Vector2 normalize(Vector2 v)
-    {
-        float mag = Sqrt(AbsSq(v));
-        return mag > 0.0001f ? v / mag : Vector2.right;
-    }
-
-    public const float RVO_EPSILON = 1e-5f;
-    public static float fabs(float x) => x < 0 ? -x : x;
-}
-
-// ----------------------------
-// RVO Agent
-// ----------------------------
 public class RvoAgent
 {
     public Vector2 position;
@@ -455,9 +355,6 @@ public class RvoAgent
     }
 }
 
-// ----------------------------
-// ORCA 主管理器
-// ----------------------------
 public class Orca
 {
     private static List<AABBObstacle> obstacles = new List<AABBObstacle>();
@@ -530,47 +427,5 @@ public class Orca
         {
             agent.Execute(timeHorizonObst, timeHorizon, timeStep, agents);
         }
-    }
-}
-
-// ----------------------------
-// 测试入口
-// ----------------------------
-public class Program
-{
-    public static void Main(string[] args)
-    {
-        var orca = new Orca();
-        orca.AddObstacle(new AABB_Rect { minX = 0, minY = 0, maxX = 1, maxY = 1 });
-        orca.AddObstacle(new AABB_Rect { minX = 0, minY = 1, maxX = 1, maxY = 2 });
-        orca.AddObstacle(new AABB_Rect { minX = 2, minY = 0, maxX = 3, maxY = 1 });
-        orca.AddObstacle(new AABB_Rect { minX = 2, minY = 1, maxX = 3, maxY = 2 });
-
-        var agents = new List<RvoAgent>
-        {
-            new RvoAgent(new Vector2(1.5f, 0.1f), new Vector2(0, 1), 0.45f, 2f),
-            // new RvoAgent(new Vector2(1.5f, 2f), new Vector2(-1, 0), 0.45f, 2f)
-        };
-
-        agents[0].prefVelocity = new Vector2(0, 1);
-        // agents[0].prefVelocity = new Vector2(-1, 0);
-
-        // 模拟几帧
-        for (int frame = 0; frame < 200; frame++)
-        {
-            orca.Execute(0.5f, 2.0f, 0.02f, agents);
-
-            // 更新位置
-            foreach (var agent in agents)
-            {
-                agent.position += agent.velocity * 0.02f;
-            }
-            if(agents[0].position.y > 1f) {
-                agents[0].prefVelocity = RvoMath.normalize(new Vector2(-1,1));
-                // agents[0].velocity = RvoMath.normalize(new Vector2(-1,1));
-            }
-            Console.WriteLine($"Frame {frame}: Agent0 pos=({agents[0].position.x:F3}, {agents[0].position.y:F3}), vel=({agents[0].velocity.x:F3}, {agents[0].velocity.y:F3})");
-        }
-        // Console.WriteLine($"Agent0 pos=({agents[0].position.x:F3}, {agents[0].position.y:F3}), vel=({agents[0].velocity.x:F3}, {agents[0].velocity.y:F3})");
     }
 }
